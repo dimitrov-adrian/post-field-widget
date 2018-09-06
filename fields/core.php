@@ -2,60 +2,87 @@
 
 
 add_filter('post_field_widget_fields', function ($elements) {
-  $elements = array_merge($elements, [
-    'empty'          => [
-      'callback' => '__return_null',
-      'label'    => __('Empty Value', 'post-content-widget'),
-    ],
-    'post_title'      => [
-      'label'    => __('Title', 'post-content-widget'),
-    ],
-    'post_thumbnail'  => [
-      'label'    => __('Thumbnail', 'post-content-widget'),
-      'settings' => [
-        'size' => __('Size string or dimensions', 'post-content-widget'),
+  $elements = array_replace_recursive($elements, [
+    'Global' => [
+      'empty'          => [
+        'callback' => '__return_null',
+        'label'    => __('Empty Value', 'post-content-widget'),
       ],
     ],
-    'post_thumbnail_url'  => [
-      'label'    => __('Thumbnail URL only', 'post-content-widget'),
-      'settings' => [
-        'size' => __('Size string or dimensions', 'post-content-widget'),
+    'Post' => [
+      'post_name'      => [
+        'label'    => __('Post Name', 'post-content-widget'),
       ],
-    ],
-    'post_meta'       => [
-      'label'    => __('Meta', 'post-content-widget'),
-    ],
-    'post_excerpt'    => [
-      'label'    => __('Excerpt', 'post-content-widget'),
-    ],
-    'post_content'    => [
-      'label'    => __('Content', 'post-content-widget'),
-    ],
-    'comments_block'  => [
-      'label'    => __('Comments block', 'post-content-widget'),
-    ],
-    'post_author_bio' => [
-      'label'    => __('Post author bio', 'post-content-widget'),
-    ],
-    'post_custom_fields' => [
-      'label'    => __('Custom post meta field', 'post-content-widget'),
-      'args' => [
-        'post_field_name'  => __('Field name', 'post-content-widget'),
-        'post_field_label' => __('Override label', 'post-content-widget'),
+      'post_title'      => [
+        'label'    => __('Post Title', 'post-content-widget'),
+      ],
+      'post_thumbnail'  => [
+        'label'    => __('Post Thumbnail', 'post-content-widget'),
+        'settings' => [
+          'size' => __('Size string or dimensions', 'post-content-widget'),
+        ],
+      ],
+      'post_thumbnail_url'  => [
+        'label'    => __('Post Thumbnail URL only', 'post-content-widget'),
+        'settings' => [
+          'size' => __('Size string or dimensions', 'post-content-widget'),
+        ],
+      ],
+      'post_excerpt'    => [
+        'label'    => __('Post Excerpt', 'post-content-widget'),
+      ],
+      'post_content'    => [
+        'label'    => __('Post Content', 'post-content-widget'),
+      ],
+      'post_custom_fields' => [
+        'label'    => __('Post Custom Meta', 'post-content-widget'),
+        'settings' => [
+          'post_field_name'  => __('Field Name', 'post-content-widget'),
+          'post_field_label' => __('Override Label', 'post-content-widget'),
+        ],
+      ],
+      'post_date'      => [
+        'label'    => __('Post Date', 'post-content-widget'),
+      ],
+      'comments_block'  => [
+        'label'    => __('Comments block', 'post-content-widget'),
+      ],
+      'post_info'       => [
+        'label'    => __('Post Info', 'post-content-widget'),
+      ],
+      'post_author_bio' => [
+        'label'    => __('Post author bio', 'post-content-widget'),
       ],
     ],
   ]);
 
-  foreach (get_taxonomies(['public' => true], 'names') as $taxonomy) {
-    $elements['taxonomy-' . $taxonomy] = [
-      'label'    => sprintf(__('Taxonomy - %s', 'post-content-widget'), $taxonomy),
-      'callback' => 'post_content_widget_formatter_taxonomy',
-      'args'     => ['taxonomy' => $taxonomy],
-    ];
+  $public_taxonomies = get_taxonomies(['public' => true], 'names');
+  if ($public_taxonomies) {
+    $elements['Taxonomy'] = [];
+    foreach ($public_taxonomies as $taxonomy) {
+      $elements['Taxonomy']['taxonomy-' . $taxonomy] = [
+        'label'    => sprintf(__('Taxonomy - %s', 'post-content-widget'), $taxonomy),
+        'callback' => 'post_field_widget_formatter_taxonomy',
+        'args'     => [
+          'taxonomy' => $taxonomy
+        ],
+      ];
+    }
   }
 
   return $elements;
 });
+
+/**
+ * Title formatter.
+ */
+function post_field_widget_formatter_post_name()
+{
+  $post = get_post();
+  if ($post) {
+    echo $post->post_name;
+  }
+}
 
 /**
  * Title formatter.
@@ -86,15 +113,15 @@ function post_field_widget_formatter_post_title()
 /**
  * Post thumbnail
  */
-function post_field_widget_formatter_post_thumbnail($args)
+function post_field_widget_formatter_post_thumbnail($instance)
 {
   if (has_post_thumbnail()) {
     $size = (is_single() ? 'large' : 'medium');
-    if ( ! empty($args['size'])) {
-      if (strpos($args['size'], ',')) {
+    if ( ! empty($instance['field_settings']['size'])) {
+      if (strpos($instance['field_settings']['size'], ',')) {
         $size = explode(',', $size);
       } else {
-        $size = $args['size'];
+        $size = $instance['field_settings']['size'];
       }
     }
     ?>
@@ -110,15 +137,15 @@ function post_field_widget_formatter_post_thumbnail($args)
 /**
  * Post thumbnail
  */
-function post_field_widget_formatter_post_thumbnail_url($args)
+function post_field_widget_formatter_post_thumbnail_url($instance)
 {
   if (has_post_thumbnail()) {
     $size = (is_single() ? 'large' : 'medium');
-    if ( ! empty($args['size'])) {
-      if (strpos($args['size'], ',')) {
+    if ( ! empty($instance['field_settings']['size'])) {
+      if (strpos($instance['field_settings']['size'], ',')) {
         $size = explode(',', $size);
       } else {
-        $size = $args['size'];
+        $size = $instance['field_settings']['size'];
       }
     }
     echo get_the_post_thumbnail_url(null, $size);
@@ -142,7 +169,7 @@ function post_field_widget_formatter_excerpt()
 /**
  * Meta formatter.
  */
-function post_field_widget_formatter_post_meta()
+function post_field_widget_formatter_post_info()
 {
   ?>
   <div class="entry-header-meta">
@@ -160,11 +187,23 @@ function post_field_widget_formatter_post_meta()
 }
 
 /**
+ * Date formatter.
+ */
+function post_field_widget_formatter_post_date()
+{
+  ?>
+  <time class="entry-header-meta-time" datetime="<?php the_time('c') ?>" pubdate="pubdate">
+    <?php the_time(get_option('date_format')) ?>
+  </time>
+  <?php
+}
+
+/**
  * Taxonomy formatter.
  */
-function post_field_widget_formatter_taxonomy($args)
+function post_field_widget_formatter_taxonomy($instance)
 {
-  if ($terms = get_the_terms(get_the_ID(), $args['taxonomy'])) {
+  if ($terms = get_the_terms(get_the_ID(), $instance['field_info']['args']['taxonomy'])) {
     ?>
     <div class="field-taxonomy-terms">
       <?php foreach ($terms as $term): ?>
@@ -182,18 +221,22 @@ function post_field_widget_formatter_taxonomy($args)
 /**
  * Custom post field formatter.
  */
-function post_field_widget_formatter_post_custom_field($args, $instance)
+function post_field_widget_formatter_post_custom_field($instance)
 {
-  if ( ! empty($args['post_field_name'])) {
+  if ( ! empty($instance['field_settings']['post_field_name'])) {
     return;
   }
-  $post_meta = get_post_meta(get_the_ID(), $args['post_field_name'], false);
+  $post_meta = get_post_meta(get_the_ID(), $instance['field_settings']['post_field_name'], false);
   if (empty($post_meta)) {
     return;
   }
   ?>
-  <div class="post-custom-meta-field post-custom-meta-field-<?php echo esc_attr($args['post_field_name']) ?>">
-    <span class="post-custom-meta-label"> <?php echo($args['post_field_label'] ? $args['post_field_label'] : $args['post_field_name']) ?> </span>
+  <div class="post-custom-meta-field post-custom-meta-field-<?php echo esc_attr($instance['field_settings']['post_field_name']) ?>">
+    <span class="post-custom-meta-label">
+      <?php echo($instance['field_settings']['post_field_label']
+        ? $instance['field_settings']['field_settings']['post_field_label']
+        : $instance['field_settings']['post_field_name']) ?>
+    </span>
     <span class="post-custom-meta-value"> <?php echo implode(', ', $post_meta) ?> </span>
   </div>
   <?php

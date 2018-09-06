@@ -63,14 +63,50 @@ class Post_field_Widget extends WP_Widget
   /**
    * Supported field formatters of the widget
    *
+   * @param bool $return_fields_only
+   *
    * @return array
    */
-  function getAvailableFields()
+  function getAvailableFields($return_fields_only = false)
   {
     if (self::$fieldsCache === null) {
       self::$fieldsCache = apply_filters( 'post_field_widget_fields', [] );
     }
-    return self::$fieldsCache;
+    if ($return_fields_only) {
+      $fields = [];
+      foreach (self::$fieldsCache as $group_fields) {
+        foreach ($group_fields as $field_name => $field_info) {
+          $fields[$field_name] = $field_info;
+        }
+      }
+      return $fields;
+    }
+    else {
+      return self::$fieldsCache;
+    }
+  }
+
+  /**
+   * Update
+   *
+   * @param array $new_instance
+   * @param array $old_instance
+   *
+   * @return array
+   */
+  public function update( $new_instance, $old_instance )
+  {
+    $fields = $this->getAvailableFields(true);
+
+    if (!empty($new_instance['field']) && !empty($fields[$new_instance['field']])) {
+      foreach ($new_instance['field_settings'] as $setting_name => $setting_value) {
+        if (!isset($fields[$new_instance['field']]['field_settings'][$setting_name])) {
+          unset($new_instance['field_settings'][$setting_name]);
+        }
+      }
+    }
+
+    return $new_instance;
   }
 
   /**
@@ -82,7 +118,7 @@ class Post_field_Widget extends WP_Widget
   {
     return [
       'field'  => '',
-      'widget-wrappers' => false,
+      'widget-wrappers' => true,
       'hide-empty' => true,
       'link-to-post' => false,
       'noresult' => '',
@@ -106,31 +142,64 @@ class Post_field_Widget extends WP_Widget
 
     <p>
       <label for="<?php echo $this->get_field_id('field') ?>">
-        <?php _e('field:', 'post-field-widget') ?>
+        <?php _e('Field:', 'post-field-widget') ?>
       </label>
       <select onchange="<?php echo $js_function_name ?>(this)"
               id="<?php echo $this->get_field_id('field') ?>"
               name="<?php echo $this->get_field_name('field') ?>"
               class="widefat">
-        <?php foreach ($this->getAvailableFields() as $field_name => $field_data): ?>
-          <option <?php selected($instance['field'], $field_name) ?> value="<?php echo esc_attr($field_name) ?>">
-            <?php echo $field_data['label'] ?>
-          </option>
+        <?php foreach ($this->getAvailableFields() as $group_name => $group_fields): ?>
+          <optgroup label="<?php echo esc_attr($group_name)?>">
+          <?php foreach ($group_fields as $field_name => $field_data): ?>
+            <option <?php selected($instance['field'], $field_name) ?> value="<?php echo esc_attr($field_name) ?>">
+              <?php echo $field_data['label'] ?>
+            </option>
+          <?php endforeach ?>
+          </optgroup>
         <?php endforeach ?>
       </select>
       <script>
         function <?php echo $js_function_name?>(element) {
-          document.querySelectorAll('.<?php echo $this->get_field_id('field-args-')?>')
-            .forEach(function(lelement) {
-              lelement.style.display = 'none';
-            });
-          document.querySelectorAll('#<?php echo $this->get_field_id('field-args-')?>-' + element.value )
-            .forEach(function(element) {
-              element.style.display = null;
-            });
+          var allFieldsets = document.getElementsByClassName('<?php echo $this->get_field_id('field-settings')?>');
+          for (var i = 0; i < allFieldsets.length; i++) {
+            allFieldsets.item(i).style.display = 'none';
+          }
+          var currentFieldset = document.getElementById('<?php echo $this->get_field_id('field-settings')?>-'  + element.value);
+          if (currentFieldset) {
+            currentFieldset.style.display = null;
+          }
         }
       </script>
     </p>
+
+    <div>
+      <?php foreach ($this->getAvailableFields(true) as $field_name => $field_data):
+        $fieldset_style = $instance['field'] != $field_name ? 'style="display:none;"' : '';
+        ?>
+
+        <?php if ( ! empty($field_data['settings'])): ?>
+        <fieldset class="<?php echo $this->get_field_id('field-settings')?>"
+                  id="<?php echo $this->get_field_id('field-settings')?>-<?php echo esc_attr($field_name) ?>"
+          <?php echo $fieldset_style?> >
+
+          <?php foreach ($field_data['settings'] as $setting_name => $setting_label): ?>
+            <p>
+              <label for="<?php echo $this->get_field_id("field-settings-{$field_name}-{$setting_name}")?>">
+                <?php echo $setting_label ?>:
+              </label>
+              <input id="<?php echo $this->get_field_id("field-settings-{$field_name}-{$setting_name}") ?>"
+                     name="<?php echo $this->get_field_name('field_settings') ?>[<?php echo $field_name ?>][<?php echo $setting_name ?>]"
+                     type="text"
+                     class="widefat"
+                     value="<?php echo empty($instance['field_settings'][$field_name][$setting_name]) ? '' : esc_attr($instance['field_settings'][$field_name][$setting_name]) ?>" />
+            </p>
+          <?php endforeach ?>
+
+        </fieldset>
+      <?php endif ?>
+
+      <?php endforeach ?>
+    </div>
 
     <p>
       <input id="<?php echo $this->get_field_id('widget-wrappers') ?>"
@@ -165,35 +234,6 @@ class Post_field_Widget extends WP_Widget
       </label>
     </p>
 
-    <div>
-      <?php foreach ($this->getAvailableFields() as $field_name => $field_data):
-        $fieldset_style = $instance['field'] != $field_name ? 'style="display:none;"' : '';
-        ?>
-
-        <?php if ( ! empty($field_data['args'])): ?>
-        <fieldset class="<?php echo $this->get_field_id('field-args-') ?>"
-                  id="<?php echo $this->get_field_id('field-args-') ?>-<?php echo esc_attr($field_name) ?>"
-          <?php echo $fieldset_style?> >
-
-          <?php foreach ($field_data['args'] as $setting_name => $setting_label): ?>
-            <p>
-              <label for="<?php echo $this->get_field_id("field-args-{$field_name}-{$setting_name}")?>">
-                <?php echo $setting_label ?>
-              </label>
-              <input id="<?php echo $this->get_field_id("field-args-{$field_name}-{$setting_name}") ?>"
-                     name="<?php echo $this->get_field_name('field_args') ?>[<?php echo $field_name ?>][<?php echo $setting_name ?>]"
-                     type="text"
-                     class="widefat"
-                     value="<?php echo empty($instance['field_settings'][$field_name][$setting_name]) ? '' : esc_attr($instance['field_args'][$field_name][$setting_name]) ?>" />
-            </p>
-          <?php endforeach ?>
-
-        </fieldset>
-      <?php endif ?>
-
-      <?php endforeach ?>
-    </div>
-
     <p>
       <label for="<?php echo $this->get_field_id('rewrite') ?>">
         <?php _e('Rewrite content:', 'post-field-widget') ?>
@@ -221,7 +261,7 @@ class Post_field_Widget extends WP_Widget
    *
    * {@inheritdoc}
    */
-  function widget($args, $instance)
+  function widget($sidebar_args, $instance)
   {
 
     $instance = wp_parse_args($instance, $this->defaultSettings());
@@ -233,7 +273,7 @@ class Post_field_Widget extends WP_Widget
       return;
     }
 
-    $fields = $this->getAvailableFields();
+    $fields = $this->getAvailableFields(true);
 
     if ( ! $instance['field'] ) {
       return;
@@ -243,9 +283,11 @@ class Post_field_Widget extends WP_Widget
       $fields[$instance['field']]['callback'] = 'post_field_widget_formatter_' . $instance['field'];
     }
 
+    $instance['field_info'] = $fields[$instance['field']];
+
     ob_start();
 
-    call_user_func($fields[$instance['field']]['callback'], $instance['field_settings']);
+    call_user_func($fields[$instance['field']]['callback'], $instance);
 
     $plain_text_allowed_tags = '<img><iframe><picture><figure><object>';
 
@@ -282,14 +324,14 @@ class Post_field_Widget extends WP_Widget
 
     // Reserved setting name widgettitle
     if ( ! empty( $instance['field_settings']['widgettitle'] )) {
-      $result['%value%'] = $args['before_title'] . $instance['field_settings']['widgettitle'] . $args['after_title'] . $result['%value%'];
+      $result['%value%'] = $sidebar_args['before_title'] . $instance['field_settings']['widgettitle'] . $sidebar_args['after_title'] . $result['%value%'];
     }
 
     // Render the field.
     if ( empty($instance['widget-wrappers']) ) {
       echo $result['%value%'];
     } else {
-      echo $args['before_widget'], $result['%value%'], $args['after_widget'];
+      echo $sidebar_args['before_widget'], $result['%value%'], $sidebar_args['after_widget'];
     }
 
   }

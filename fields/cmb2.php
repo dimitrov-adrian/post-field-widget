@@ -12,16 +12,20 @@ add_filter('post_field_widget_fields', function ($elements) {
     'oembed'
   ];
 
+  if (CMB2_Boxes::get_all()) {
+    $elements['CMB2'] = [];
+  }
+
   foreach (CMB2_Boxes::get_all() as $metabox) {
-    foreach ($metabox->prop('fields') as $field_args) {
-      if (in_array($field_args['type'], $unsupported)) {
+    foreach ($metabox->prop('fields') as $field_settings) {
+      if (in_array($field_settings['type'], $unsupported)) {
         continue;
       }
-      $elements[$metabox->cmb_id . '_' . $field_args['name']] = array(
-        'label'    => sprintf('(%s) %s', 'CMB2', implode('/', [ $metabox->prop('title'), $field_args['name'] ])),
+      $elements['CMB2'][$metabox->cmb_id . '_' . $field_settings['name']] = array(
+        'label'    => sprintf('(%s) %s', 'CMB2', implode('/', [ $metabox->prop('title'), $field_settings['name'] ])),
         'callback' => 'post_field_widget_formatter_acf',
         'args'     => [
-          'field'   => $field_args,
+          'field'   => $field_settings,
           'metabox' => $metabox->cmb_id
         ],
       );
@@ -33,8 +37,8 @@ add_filter('post_field_widget_fields', function ($elements) {
 /**
  * CMB2 Formatter
  */
-function cmb2_render_field($args, $options = []) {
-  $value = cmb2_get_field_value($args['metabox'], $args['field']);
+function cmb2_render_field($instance) {
+  $value = cmb2_get_field_value($instance['field_info']['args']['metabox'], $instance['field_info']['args']['field']);
   if (!$value) {
     return;
   }

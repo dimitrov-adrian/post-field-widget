@@ -21,8 +21,9 @@ add_filter('post_field_widget_fields', function ($elements) {
   ];
 
   $product_tabs = apply_filters('woocommerce_product_tabs', []);
+  $elements['WooCommerce'] = [];
   foreach ($product_tabs as $key => $tab) {
-    $elements['wc_product_tab_' . $key] = [
+    $elements['WooCommerce']['wc_product_tab_' . $key] = [
       'label' => sprintf(__('WooCommerce Product Tab: %s', 'post-field-widget'), $tab['title']),
       'callback' => 'post_field_widget_formatter_wc_product_tab',
       'args' => [
@@ -100,7 +101,7 @@ function post_field_widget_formatter_wc_product_related() {
 /**
  * Product tabs
  */
-function post_field_widget_formatter_wc_product_tab($args) {
+function post_field_widget_formatter_wc_product_tab($instance) {
   if (!is_product()) {
     return;
   }
@@ -109,9 +110,8 @@ function post_field_widget_formatter_wc_product_tab($args) {
   if (!$tabs) {
     $tabs = apply_filters('woocommerce_product_tabs', array());
   }
-  if (empty($tabs[$args['tab']])) {
+  if (empty($tabs[$instance['field_info']['args']['field']])) {
     return;
   }
-  call_user_func($tabs[$args['tab']]['callback']);
-  return $args;
+  call_user_func($tabs[$instance['field_info']['args']['field']]['callback']);
 }

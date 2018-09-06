@@ -4,8 +4,13 @@
  * Register WPCF fields.
  */
 add_filter('post_field_widget_fields', function ($elements) {
+
+  if (wpcf_admin_fields_get_fields()) {
+    $elements['WPCF'] = [];
+  }
+
   foreach (wpcf_admin_fields_get_fields() as $field) {
-    $elements[$field['meta_key']] = [
+    $elements['WPCF'][$field['meta_key']] = [
       'label' => sprintf('(%s) %s', 'ACF', implode('/' , [ $field['title'], $field['type'] ])),
       'callback' => 'post_field_widget_formatter_wpcf',
       'args' => $field,
